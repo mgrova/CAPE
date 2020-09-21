@@ -3,7 +3,7 @@
  *
  */
 
-#include "PlaneSeg.h"
+#include "CAPE/PlaneSeg.h"
 
 PlaneSeg::PlaneSeg(Eigen::MatrixXf & cloud_array, int cell_id, int nr_pts_per_cell, int cell_width)
 {

@@ -3,7 +3,7 @@
  *
  */
 
-#include "CAPE.h"
+#include "CAPE/CAPE.h"
 
 CAPE::CAPE(int depth_height, int depth_width, int cell_width, int cell_height, bool cylinder_detection, float min_cos_angle_4_merge, float max_merge_dist)
 {

@@ -2,7 +2,7 @@
  * Copyright 2018 Pedro Proenza <p.proenca@surrey.ac.uk> (University of Surrey)
  *
  */
-#include "CylinderSeg.h"
+#include "CAPE/CylinderSeg.h"
 
 CylinderSeg::CylinderSeg(vector<PlaneSeg*> & Grid, bool * activated_mask,int nr_cells_activated)
 {

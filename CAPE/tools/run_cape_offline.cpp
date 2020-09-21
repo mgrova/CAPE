@@ -9,7 +9,7 @@
 #include <math.h>
 #include <opencv2/opencv.hpp>
 #include <Eigen/Dense>
-#include "CAPE.h"
+#include "CAPE/CAPE.h"
 
 using namespace std;
 
@@ -33,7 +33,7 @@ bool loadCalibParameters(string filepath, cv:: Mat & intrinsics_rgb, cv::Mat & d
         fs.release();
         return true;
     }else{
-        cerr<<"Calibration file missing"<<endl;
+        cerr << "Calibration file missing" << endl;
         return false;
     }
 }
@@ -104,17 +104,17 @@ int main(int argc, char ** argv){
         sequence = argv[2];
     }else{
         PATCH_SIZE = 20;
-        sequence = "cy_0";
+        sequence = "tunnel";
     }
 
     stringstream string_buff;
-    string data_path = "../../Data/";
+    string data_path = "/home/grvc/programming/CAPE/Data/";
     string_buff<<data_path<<sequence;
 
     // Get intrinsics
     cv::Mat K_rgb, K_ir, dist_coeffs_rgb, dist_coeffs_ir, R_stereo, t_stereo;
     stringstream calib_path;
-    calib_path<<string_buff.str()<<"/calib_params.xml";
+    calib_path << string_buff.str() << "/calib_params.xml";
     loadCalibParameters(calib_path.str(), K_rgb, dist_coeffs_rgb, K_ir, dist_coeffs_ir, R_stereo, t_stereo);
     float fx_ir = K_ir.at<double>(0,0); float fy_ir = K_ir.at<double>(1,1);
     float cx_ir = K_ir.at<double>(0,2); float cy_ir = K_ir.at<double>(1,2);

@@ -3,7 +3,7 @@
  *
  */
 
-#include "Histogram.h"
+#include "CAPE/Histogram.h"
 
 Histogram::Histogram(int nr_bins_per_coord)
 {

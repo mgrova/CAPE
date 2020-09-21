@@ -438,7 +438,7 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
             cy.radii.push_back(cylinder_segments[reg_id].radii[sub_reg_id]);
             cy.centers.push_back(cylinder_segments[reg_id].centers[sub_reg_id]);
             std::copy(cylinder_segments[reg_id].axis, cylinder_segments[reg_id].axis+3, cy.axis);
-            std::cout << cylinder_segments[reg_id].axis[2] << std::endl;
+            // std::cout << cylinder_segments[reg_id].axis[2] << std::endl;
             cylinder_segments_final.push_back(cy);
         }
     }

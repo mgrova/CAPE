@@ -102,7 +102,7 @@ int main(int argc, char ** argv){
         sequence = argv[2];
     }else{
         PATCH_SIZE = 20;
-        sequence = "tunnel";
+        sequence = "pipe";
     }
 
     std::stringstream string_buff;

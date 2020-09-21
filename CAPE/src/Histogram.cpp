@@ -12,7 +12,7 @@ Histogram::Histogram(int nr_bins_per_coord)
 	this->H.assign(nr_bins,0);
 }
 
-void Histogram::initHistogram(Eigen::MatrixXd & P, vector<bool> & Flags){
+void Histogram::initHistogram(Eigen::MatrixXd & P, std::vector<bool> & Flags){
 
 	int nr_points = P.rows();
 	this->nr_points = nr_points;
@@ -42,9 +42,9 @@ void Histogram::initHistogram(Eigen::MatrixXd & P, vector<bool> & Flags){
 	}
 }
 
-vector<int> Histogram::getPointsFromMostFrequentBin(){
+std::vector<int> Histogram::getPointsFromMostFrequentBin(){
 
-	vector<int> point_ids;
+	std::vector<int> point_ids;
 
 	int most_frequent_bin = -1;
 	int max_nr_occurrences = 0;

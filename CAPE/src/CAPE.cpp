@@ -5,8 +5,7 @@
 
 #include "CAPE/CAPE.h"
 
-CAPE::CAPE(int depth_height, int depth_width, int cell_width, int cell_height, bool cylinder_detection, float min_cos_angle_4_merge, float max_merge_dist)
-{
+CAPE::CAPE(int depth_height, int depth_width, int cell_width, int cell_height, bool cylinder_detection, float min_cos_angle_4_merge, float max_merge_dist){
 	this->depth_height = depth_height;
 	this->depth_width = depth_width;
 	this->cell_width = cell_width;
@@ -44,7 +43,7 @@ CAPE::CAPE(int depth_height, int depth_width, int cell_width, int cell_height, b
 	mask_cross_kernel.at<uchar>(0,2) = 0; mask_cross_kernel.at<uchar>(2,0) = 0;
 }
 
-void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & nr_cylinders_final,  cv::Mat & seg_out, vector<PlaneSeg> & plane_segments_final, vector<CylinderSeg> & cylinder_segments_final){
+void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & nr_cylinders_final,  cv::Mat & seg_out, std::vector<PlaneSeg> & plane_segments_final, std::vector<CylinderSeg> & cylinder_segments_final){
 
 	int nr_horizontal_cells = depth_width/cell_width;
 	int nr_vertical_cells = depth_height/cell_height;
@@ -70,7 +69,7 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
 			if (Grid[stacked_cell_id]->planar){
 				cell_diameter = (cloud_array.block(stacked_cell_id*nr_pts_per_cell+nr_pts_per_cell-1,0,1,3)-cloud_array.block(stacked_cell_id*nr_pts_per_cell,0,1,3)).norm();
 				// Add truncated distance
-				cell_distance_tols[stacked_cell_id]=pow(min(max(cell_diameter*sin_cos_angle_4_merge,20.0f),max_merge_dist),2);
+				cell_distance_tols[stacked_cell_id]=std::pow(std::min(std::max(cell_diameter*sin_cos_angle_4_merge,20.0f),max_merge_dist),2);
 			}
 
 			stacked_cell_id++;
@@ -80,8 +79,8 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
 	//double t3 = cv::getTickCount();
 	// Spherical coordinates
 	Eigen::MatrixXd C(nr_total_cells,2);
-	vector<bool> planar_flags(nr_total_cells,false);
-	vector<float> scores_stacked(nr_total_cells,0.0);
+	std::vector<bool> planar_flags(nr_total_cells,false);
+	std::vector<float> scores_stacked(nr_total_cells,0.0);
 	int nr_remaining_planar_cells = 0;
 	double nx,ny,nz;
 	for (int cell_id=0; cell_id<nr_total_cells; cell_id++){
@@ -101,11 +100,11 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
 	H.initHistogram(C,planar_flags);
 
 	// Initialization for cell-wise region growing and model fitting
-	vector<PlaneSeg> plane_segments;
-	vector<CylinderSeg> cylinder_segments;
+	std::vector<PlaneSeg> plane_segments;
+	std::vector<CylinderSeg> cylinder_segments;
 	bool stop = false;
 	int nr_cylinders = 0;
-	vector<pair<int,int> > cylinder2region_map;
+	std::vector<std::pair<int,int> > cylinder2region_map;
 
 	for (int cell_id=0; cell_id<nr_total_cells; cell_id++){
 		unassigned_mask[cell_id] = planar_flags[cell_id];
@@ -114,7 +113,7 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
 	while(nr_remaining_planar_cells>0){  
 		// 1. Seeding
 		// Pick up seed candidates
-		vector<int> seed_candidates = H.getPointsFromMostFrequentBin();
+		std::vector<int> seed_candidates = H.getPointsFromMostFrequentBin();
 
 		// Checkpoint 1
 		if (seed_candidates.size()<5)
@@ -203,7 +202,7 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
 						cy.cylindrical_mask[seg_id] = false;
 					}else{
 						nr_cylinders++;
-						cylinder2region_map.push_back(make_pair(cylinder_segments.size()-1,seg_id));
+						cylinder2region_map.push_back(std::make_pair(cylinder_segments.size()-1,seg_id));
 						for(int c=0; c<nr_cells_activated; c++){
 							if (cy.inliers[seg_id](c)){
 								int cell_id = cy.local2global_map[c];
@@ -222,7 +221,7 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
 	MatrixXb planes_association_matrix= MatrixXb::Zero(nr_planes,nr_planes);
 	getConnectedComponents(grid_plane_seg_map, planes_association_matrix);
 
-	vector<int> plane_merge_labels;
+	std::vector<int> plane_merge_labels;
 	for(int i=0; i<nr_planes; i++)
 		plane_merge_labels.push_back(i);
 
@@ -252,7 +251,7 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
 	}
 
 	/*------------------------------- Refine plane boundaries -------------------------------*/
-    //vector<PlaneSeg> plane_segments_joint;
+    //std::vector<PlaneSeg> plane_segments_joint;
 	for(int i=0; i<nr_planes;i++){
 
 		if(i!=plane_merge_labels[i])
@@ -438,8 +437,8 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
             CylinderSeg cy;
             cy.radii.push_back(cylinder_segments[reg_id].radii[sub_reg_id]);
             cy.centers.push_back(cylinder_segments[reg_id].centers[sub_reg_id]);
-            copy(cylinder_segments[reg_id].axis, cylinder_segments[reg_id].axis+3, cy.axis);
-            cout<<cylinder_segments[reg_id].axis[2]<<endl;
+            std::copy(cylinder_segments[reg_id].axis, cylinder_segments[reg_id].axis+3, cy.axis);
+            std::cout << cylinder_segments[reg_id].axis[2] << std::endl;
             cylinder_segments_final.push_back(cy);
         }
     }
@@ -482,7 +481,7 @@ void CAPE::getConnectedComponents(cv::Mat & segment_map, MatrixXb & planes_assoc
 
 // Recursive implementation
 // TODO: Test instead iterative implementation
-void CAPE::RegionGrowing(unsigned short width, unsigned short height, bool* input, bool* output, vector<PlaneSeg*> & Grid, vector<float> & cell_dist_tols, unsigned short x, unsigned short y, double * normal_1, double d)
+void CAPE::RegionGrowing(unsigned short width, unsigned short height, bool* input, bool* output, std::vector<PlaneSeg*> & Grid, std::vector<float> & cell_dist_tols, unsigned short x, unsigned short y, double * normal_1, double d)
 {
 	int index = x + width*y;
 	// If pixel is not part of a component or has already been labelled
@@ -507,7 +506,6 @@ void CAPE::RegionGrowing(unsigned short width, unsigned short height, bool* inpu
 
 
 
-CAPE::~CAPE(void)
-{
+CAPE::~CAPE(void){
 	Grid.clear();
 }

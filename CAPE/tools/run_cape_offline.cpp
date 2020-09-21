@@ -11,8 +11,6 @@
 #include <Eigen/Dense>
 #include "CAPE/CAPE.h"
 
-using namespace std;
-
 bool done = false;
 float COS_ANGLE_MAX = cos(M_PI/12);
 float MAX_MERGE_DIST = 50.0f;
@@ -20,7 +18,7 @@ bool cylinder_detection= true;
 CAPE * plane_detector;
 std::vector<cv::Vec3b> color_code;
 
-bool loadCalibParameters(string filepath, cv:: Mat & intrinsics_rgb, cv::Mat & dist_coeffs_rgb, cv:: Mat & intrinsics_ir, cv::Mat & dist_coeffs_ir, cv::Mat & R, cv::Mat & T){
+bool loadCalibParameters(std::string filepath, cv:: Mat & intrinsics_rgb, cv::Mat & dist_coeffs_rgb, cv:: Mat & intrinsics_ir, cv::Mat & dist_coeffs_ir, cv::Mat & R, cv::Mat & T){
 
     cv::FileStorage fs(filepath,cv::FileStorage::READ);
     if (fs.isOpened()){
@@ -33,7 +31,7 @@ bool loadCalibParameters(string filepath, cv:: Mat & intrinsics_rgb, cv::Mat & d
         fs.release();
         return true;
     }else{
-        cerr << "Calibration file missing" << endl;
+        std::cerr << "Calibration file missing" << std::endl;
         return false;
     }
 }
@@ -97,7 +95,7 @@ void organizePointCloudByCell(Eigen::MatrixXf & cloud_in, Eigen::MatrixXf & clou
 
 int main(int argc, char ** argv){
 
-    string sequence;
+    std::string sequence;
     int PATCH_SIZE;
     if (argc>1){
         PATCH_SIZE = atoi(argv[1]);
@@ -107,28 +105,28 @@ int main(int argc, char ** argv){
         sequence = "tunnel";
     }
 
-    stringstream string_buff;
-    string data_path = "/home/grvc/programming/CAPE/Data/";
-    string_buff<<data_path<<sequence;
+    std::stringstream string_buff;
+    std::string data_path = "/home/grvc/programming/CAPE/Data/";
+    string_buff << data_path << sequence;
 
     // Get intrinsics
     cv::Mat K_rgb, K_ir, dist_coeffs_rgb, dist_coeffs_ir, R_stereo, t_stereo;
-    stringstream calib_path;
+    std::stringstream calib_path;
     calib_path << string_buff.str() << "/calib_params.xml";
     loadCalibParameters(calib_path.str(), K_rgb, dist_coeffs_rgb, K_ir, dist_coeffs_ir, R_stereo, t_stereo);
-    float fx_ir = K_ir.at<double>(0,0); float fy_ir = K_ir.at<double>(1,1);
-    float cx_ir = K_ir.at<double>(0,2); float cy_ir = K_ir.at<double>(1,2);
+    float fx_ir  = K_ir.at<double>(0,0);  float fy_ir = K_ir.at<double>(1,1);
+    float cx_ir  = K_ir.at<double>(0,2);  float cy_ir = K_ir.at<double>(1,2);
     float fx_rgb = K_rgb.at<double>(0,0); float fy_rgb = K_rgb.at<double>(1,1);
     float cx_rgb = K_rgb.at<double>(0,2); float cy_rgb = K_rgb.at<double>(1,2);
 
     // Read frame 1 to allocate and get dimension
     cv::Mat rgb_img, d_img;
     int width, height;
-    stringstream image_path;
-    stringstream depth_img_path;
-    stringstream rgb_img_path;
-    rgb_img_path<<string_buff.str()<<"/rgb_0.png";
-    depth_img_path<<string_buff.str()<<"/depth_0.png";
+    std::stringstream image_path;
+    std::stringstream depth_img_path;
+    std::stringstream rgb_img_path;
+    rgb_img_path   << string_buff.str() << "/rgb_0.png";
+    depth_img_path << string_buff.str() << "/depth_0.png";
 
     rgb_img = cv::imread(rgb_img_path.str(),cv::IMREAD_COLOR);
 
@@ -136,7 +134,7 @@ int main(int argc, char ** argv){
         width = rgb_img.cols;
         height = rgb_img.rows;
     }else{
-        cout<<"Error loading file";
+        std::cout << "Error loading file";
         return -1;
     }
 
@@ -151,7 +149,8 @@ int main(int argc, char ** argv){
     for (int r=0;r<height; r++){
         for (int c=0;c<width; c++){
             // Not efficient but at this stage doesn t matter
-            X_pre.at<float>(r,c) = (c-cx_ir)/fx_ir; Y_pre.at<float>(r,c) = (r-cy_ir)/fy_ir;
+            X_pre.at<float>(r,c) = (c-cx_ir)/fx_ir; 
+            Y_pre.at<float>(r,c) = (r-cy_ir)/fy_ir;
         }
     }
 
@@ -205,17 +204,17 @@ int main(int argc, char ** argv){
 
         // Read frame i
         rgb_img_path.str("");
-        rgb_img_path<<string_buff.str()<<"/rgb_"<<i<<".png";
+        rgb_img_path << string_buff.str() << "/rgb_" << i << ".png";
         rgb_img = cv::imread(rgb_img_path.str(),cv::IMREAD_COLOR);
 
         if (!rgb_img.data)
             break;
 
-        cout<<"Frame: "<<i<<endl;
+        std::cout << "Frame: " << i << std::endl;
 
         // Read depth image
         depth_img_path.str("");
-        depth_img_path<<string_buff.str()<<"/depth_"<<i<<".png";
+        depth_img_path << string_buff.str() << "/depth_" << i << ".png";
 
         d_img = cv::imread(depth_img_path.str(), cv::IMREAD_ANYDEPTH);
         d_img.convertTo(d_img, CV_32F);
@@ -226,9 +225,9 @@ int main(int argc, char ** argv){
 
         // The following transformation+projection is only necessary to visualize RGB with overlapped segments
         // Transform point cloud to color reference frame
-        X_t = ((float)R_stereo.at<double>(0,0))*X+((float)R_stereo.at<double>(0,1))*Y+((float)R_stereo.at<double>(0,2))*d_img + (float)t_stereo.at<double>(0);
-        Y_t = ((float)R_stereo.at<double>(1,0))*X+((float)R_stereo.at<double>(1,1))*Y+((float)R_stereo.at<double>(1,2))*d_img + (float)t_stereo.at<double>(1);
-        d_img = ((float)R_stereo.at<double>(2,0))*X+((float)R_stereo.at<double>(2,1))*Y+((float)R_stereo.at<double>(2,2))*d_img + (float)t_stereo.at<double>(2);
+        X_t = ((float)R_stereo.at<double>(0,0))*X + ((float)R_stereo.at<double>(0,1))*Y + ((float)R_stereo.at<double>(0,2))*d_img + (float)t_stereo.at<double>(0);
+        Y_t = ((float)R_stereo.at<double>(1,0))*X + ((float)R_stereo.at<double>(1,1))*Y + ((float)R_stereo.at<double>(1,2))*d_img + (float)t_stereo.at<double>(1);
+        d_img = ((float)R_stereo.at<double>(2,0))*X + ((float)R_stereo.at<double>(2,1))*Y + ((float)R_stereo.at<double>(2,2))*d_img + (float)t_stereo.at<double>(2);
 
         projectPointCloud(X_t, Y_t, d_img, U, V, fx_rgb, fy_rgb, cx_rgb, cy_rgb, t_stereo.at<double>(2), cloud_array);
 
@@ -237,14 +236,14 @@ int main(int argc, char ** argv){
 
         // Run CAPE
         int nr_planes, nr_cylinders;
-        vector<PlaneSeg> plane_params;
-        vector<CylinderSeg> cylinder_params;
+        std::vector<PlaneSeg> plane_params;
+        std::vector<CylinderSeg> cylinder_params;
         double t1 = cv::getTickCount();
         organizePointCloudByCell(cloud_array, cloud_array_organized, cell_map);
         plane_detector->process(cloud_array_organized, nr_planes, nr_cylinders, seg_output, plane_params, cylinder_params);
         double t2 = cv::getTickCount();
         double time_elapsed = (t2-t1)/(double)cv::getTickFrequency();
-        cout<<"Total time elapsed: "<<time_elapsed<<endl;
+        std::cout<<"Total time elapsed: " << time_elapsed << std::endl;
 
         /* Uncomment this block to print model params
         for(int p_id=0; p_id<nr_planes;p_id++){
@@ -288,14 +287,15 @@ int main(int argc, char ** argv){
         // Show frame rate and labels
         cv::rectangle(seg_rz,  cv::Point(0,0),cv::Point(width,20), cv::Scalar(0,0,0),-1);
         std::stringstream fps;
-        fps<<(int)(1/time_elapsed+0.5)<<" fps";
+        fps << (int)(1/time_elapsed+0.5) << " fps";
         cv::putText(seg_rz, fps.str(), cv::Point(15,15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255,255,255,1));
-        cout<<"Nr cylinders:"<<nr_cylinders<<endl;
+        std::cout << "Nr cylinders:" << nr_cylinders << std::endl;
         int cylinder_code_offset = 50;
         // show cylinder labels
         if (nr_cylinders>0){
             std::stringstream text;
             text<<"Cylinders:";
+            
             cv::putText(seg_rz, text.str(), cv::Point(width/2,15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255,255,255,1));
             for(int j=0;j<nr_cylinders;j++){
                 cv::rectangle(seg_rz,  cv::Point(width/2 + 80+15*j,6),cv::Point(width/2 + 90+15*j,16), cv::Scalar(color_code[cylinder_code_offset+j][0],color_code[cylinder_code_offset+j][1],color_code[cylinder_code_offset+j][2]),-1);
@@ -305,6 +305,7 @@ int main(int argc, char ** argv){
         cv::waitKey(1);
         i++;
     }
+    
     return 0;
 }
 

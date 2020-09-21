@@ -3,16 +3,23 @@
  *
  */
 
-#pragma once
+#ifndef PLANE_SEGMENTATION_CAPE_H_
+#define PLANE_SEGMENTATION_CAPE_H_
+
 #include <iostream>
 #include "Params.h"
 #include <Eigen/Dense>
 #include <ctime>
 
-using namespace std;
-
-class PlaneSeg
-{
+class PlaneSeg{
+public:
+	PlaneSeg(Eigen::MatrixXf & cloud_array, int cell_id, int nr_pts_per_cell, int cell_width);
+	~PlaneSeg(void);
+	
+	void fitPlane();
+	void expandSegment(PlaneSeg * plane_seg);
+	void clearPoints();
+	
 public:
 	int nr_pts, min_nr_pts;
 	double x_acc, y_acc, z_acc,
@@ -26,10 +33,6 @@ public:
 	double mean[3];
 	double normal[3];
 	double d;
-	PlaneSeg(Eigen::MatrixXf & cloud_array, int cell_id, int nr_pts_per_cell, int cell_width);
-	void fitPlane();
-	void expandSegment(PlaneSeg * plane_seg);
-	void clearPoints();
-	~PlaneSeg(void);
 };
 
+#endif

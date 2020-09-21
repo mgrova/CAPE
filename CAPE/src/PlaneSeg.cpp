@@ -5,8 +5,7 @@
 
 #include "CAPE/PlaneSeg.h"
 
-PlaneSeg::PlaneSeg(Eigen::MatrixXf & cloud_array, int cell_id, int nr_pts_per_cell, int cell_width)
-{
+PlaneSeg::PlaneSeg(Eigen::MatrixXf & cloud_array, int cell_id, int nr_pts_per_cell, int cell_width){
 	nr_pts = 0;
 	min_nr_pts = nr_pts_per_cell/2;
 	int offset = cell_id*nr_pts_per_cell;
@@ -36,7 +35,7 @@ PlaneSeg::PlaneSeg(Eigen::MatrixXf & cloud_array, int cell_id, int nr_pts_per_ce
 	int jumps_counter = 0;
 	int i = cell_width*(cell_height/2);
 	int j = i+cell_width;
-	float z(0), z_last(max(Z_matrix(i),Z_matrix(i+1))); /* handles missing pixels on the borders*/
+	float z(0), z_last(std::max(Z_matrix(i),Z_matrix(i+1))); /* handles missing pixels on the borders*/
 	i++;
 	// Scan horizontally through the middle
 	while(i<j){
@@ -57,7 +56,7 @@ PlaneSeg::PlaneSeg(Eigen::MatrixXf & cloud_array, int cell_id, int nr_pts_per_ce
 	// Scan vertically through the middle
 	i = cell_width/2;
 	j = nr_pts_per_cell-i;
-	z_last = max(Z_matrix(i),Z_matrix(i+cell_width));  /* handles missing pixels on the borders*/
+	z_last = std::max(Z_matrix(i),Z_matrix(i+cell_width));  /* handles missing pixels on the borders*/
 	i=i+cell_width;
 	jumps_counter = 0;
 	while(i<j){

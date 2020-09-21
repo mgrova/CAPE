@@ -4,7 +4,7 @@
  */
 #include "CAPE/CylinderSeg.h"
 
-CylinderSeg::CylinderSeg(vector<PlaneSeg*> & Grid, bool * activated_mask,int nr_cells_activated)
+CylinderSeg::CylinderSeg(std::vector<PlaneSeg*> & Grid, bool * activated_mask,int nr_cells_activated)
 {
 
 	int nr_samples = Grid.size();
@@ -82,7 +82,7 @@ CylinderSeg::CylinderSeg(vector<PlaneSeg*> & Grid, bool * activated_mask,int nr_
 	float K = log(1-p_success)/log(1-pow(w,3));
 
 	int m_left = m;
-	vector<int> ids_left;
+	std::vector<int> ids_left;
 	MatrixXb ids_left_mask(1,m);
 	for(int i=0; i<m; i++){
 		ids_left.push_back(i);

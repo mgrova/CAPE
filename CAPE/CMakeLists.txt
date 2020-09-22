@@ -44,6 +44,13 @@ if(${Eigen3_FOUND})
 	target_include_directories(${PROJECT_NAME} PUBLIC "/usr/include/eigen3")
 endif(${Eigen3_FOUND})
 
+find_package(realsense2 REQUIRED)
+if(${realsense2_FOUND})
+  MESSAGE( STATUS "realsense2 FOUND")
+  target_link_libraries(${PROJECT_NAME} LINK_PUBLIC ${realsense2_LIBRARY})
+  target_compile_definitions(${PROJECT_NAME} PUBLIC HAS_LIBREALSENSE2)
+endif()
+
 #########################################
 ######			Tools   	       ######
 #########################################

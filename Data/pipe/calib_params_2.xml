@@ -17,9 +17,9 @@
   <rows>3</rows>
   <cols>3</cols>
   <dt>d</dt>
-  <data> 388.235444 0.0 317.612504
-           0.0 388.978349 239.074028
-           0.0 0.0 1.0</data>
+  <data> 609.407890 0.0 333.373527
+          0.0 610.436884 240.355732
+          0.0 0.0 1.0</data>
 </IR_intrinsic_params>
 <IR_distortion_coefficients type_id="opencv-matrix">
   <rows>1</rows>

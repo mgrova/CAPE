@@ -9,7 +9,9 @@
 #include <math.h>
 #include <opencv2/opencv.hpp>
 #include <Eigen/Dense>
+
 #include "CAPE/CAPE.h"
+#include "RSCamera.h"
 
 bool done = false;
 float COS_ANGLE_MAX = cos(M_PI/12);
@@ -93,51 +95,54 @@ void organizePointCloudByCell(Eigen::MatrixXf & cloud_in, Eigen::MatrixXf & clou
     }
 }
 
-int main(int argc, char ** argv){
+int main(int argc, char ** argv){   
 
-    std::string sequence;
-    int PATCH_SIZE;
-    if (argc>1){
-        PATCH_SIZE = atoi(argv[1]);
-        sequence = argv[2];
-    }else{
-        PATCH_SIZE = 20;
-        sequence = "pipe";
+    RSCamera* camera = new RSCamera();
+    if(!camera->init(0)){
+        std::cout << "Error inicializating camera \n";
+        return -1;
     }
+    for(int i = 0 ; i < 10 ; i++)
+        camera->grab();
 
-    std::stringstream string_buff;
-    std::string data_path = "/home/grvc/programming/CAPE/Data/";
-    string_buff << data_path << sequence;
+    // Create window
+    cv::namedWindow("Segmentation",cv::WINDOW_AUTOSIZE);
+    cvStartWindowThread();
+
+    cv::Mat intrinsics, coeffs;
+    camera->leftCalibration(intrinsics, coeffs);
 
     // Get intrinsics
     cv::Mat K_rgb, K_ir, dist_coeffs_rgb, dist_coeffs_ir, R_stereo, t_stereo;
     std::stringstream calib_path;
-    calib_path << string_buff.str() << "/calib_params.xml";
+    calib_path << "/home/grvc/programming/CAPE/Data/pipe/calib_params_2.xml";
     loadCalibParameters(calib_path.str(), K_rgb, dist_coeffs_rgb, K_ir, dist_coeffs_ir, R_stereo, t_stereo);
-    float fx_ir  = K_ir.at<double>(0,0);  float fy_ir = K_ir.at<double>(1,1);
-    float cx_ir  = K_ir.at<double>(0,2);  float cy_ir = K_ir.at<double>(1,2);
+    float fx_ir  = K_ir.at<double>(0,0);  float fy_ir  = K_ir.at<double>(1,1);
+    float cx_ir  = K_ir.at<double>(0,2);  float cy_ir  = K_ir.at<double>(1,2);
     float fx_rgb = K_rgb.at<double>(0,0); float fy_rgb = K_rgb.at<double>(1,1);
     float cx_rgb = K_rgb.at<double>(0,2); float cy_rgb = K_rgb.at<double>(1,2);
 
-    // Read frame 1 to allocate and get dimension
-    cv::Mat rgb_img, d_img;
-    int width, height;
-    std::stringstream image_path;
-    std::stringstream depth_img_path;
-    std::stringstream rgb_img_path;
-    rgb_img_path   << string_buff.str() << "/rgb_0.png";
-    depth_img_path << string_buff.str() << "/depth_0.png";
-
-    rgb_img = cv::imread(rgb_img_path.str(),cv::IMREAD_COLOR);
-
-    if(rgb_img.data){
-        width = rgb_img.cols;
-        height = rgb_img.rows;
-    }else{
-        std::cout << "Error loading file";
+    cv::Mat left, rigth;
+    if(!camera->rgb(left, rigth)){
+        std::cout << "Error getting first color frame \n";
         return -1;
     }
 
+    cv::Mat depth;
+    if(!camera->depth(depth)){
+        std::cout << "Error getting first depth frame \n";
+        return -1;
+    }
+
+    int width, height;
+    if(left.data){
+        width = left.cols;
+        height = left.rows;
+    }else{
+        std::cout << "Error loading image color dimensions \n";
+        return -1;
+    }
+    int PATCH_SIZE = 20;
     int nr_horizontal_cells = width/PATCH_SIZE;
     int nr_vertical_cells = height/PATCH_SIZE;
 
@@ -167,14 +172,12 @@ int main(int argc, char ** argv){
         }
     }
 
-    cv::Mat_<float> X(height,width);
-    cv::Mat_<float> Y(height,width);
-    cv::Mat_<float> X_t(height,width);
-    cv::Mat_<float> Y_t(height,width);
-    Eigen::MatrixXf cloud_array(width*height,3);
-    Eigen::MatrixXf cloud_array_organized(width*height,3);
-
-    cv::namedWindow("Seg");
+    cv::Mat_<float> X(height, width);
+    cv::Mat_<float> Y(height, width);
+    cv::Mat_<float> X_t(height, width);
+    cv::Mat_<float> Y_t(height, width);
+    Eigen::MatrixXf cloud_array(width * height, 3);
+    Eigen::MatrixXf cloud_array_organized(width * height, 3);
 
     // Populate with random color codes
     for(int i=0; i<100;i++){
@@ -186,50 +189,46 @@ int main(int argc, char ** argv){
     }
 
     // Add specific colors for planes
-    color_code[0][0] = 0; color_code[0][1] = 0; color_code[0][2] = 255;
-    color_code[1][0] = 255; color_code[1][1] = 0; color_code[1][2] = 204;
+    color_code[0][0] = 0;   color_code[0][1] = 0;   color_code[0][2] = 255;
+    color_code[1][0] = 255; color_code[1][1] = 0;   color_code[1][2] = 204;
     color_code[2][0] = 255; color_code[2][1] = 100; color_code[2][2] = 0;
-    color_code[3][0] = 0; color_code[3][1] = 153; color_code[3][2] = 255;
+    color_code[3][0] = 0;   color_code[3][1] = 153; color_code[3][2] = 255;
     // Add specific colors for cylinders
     color_code[50][0] = 178; color_code[50][1] = 255; color_code[50][2] = 0;
-    color_code[51][0] = 255; color_code[51][1] = 0; color_code[51][2] = 51;
-    color_code[52][0] = 0; color_code[52][1] = 255; color_code[52][2] = 51;
-    color_code[53][0] = 153; color_code[53][1] = 0; color_code[53][2] = 255;
+    color_code[51][0] = 255; color_code[51][1] = 0;   color_code[51][2] = 51;
+    color_code[52][0] = 0;   color_code[52][1] = 255; color_code[52][2] = 51;
+    color_code[53][0] = 153; color_code[53][1] = 0;   color_code[53][2] = 255;
 
     // Initialize CAPE
     plane_detector = new CAPE(height, width, PATCH_SIZE, PATCH_SIZE, cylinder_detection, COS_ANGLE_MAX, MAX_MERGE_DIST);
 
-    int i=0;
-    while(true){
+    while(1){
+        camera->grab();
 
-        // Read frame i
-        rgb_img_path.str("");
-        rgb_img_path << string_buff.str() << "/rgb_" << i << ".png";
-        rgb_img = cv::imread(rgb_img_path.str(),cv::IMREAD_COLOR);
-
-        if (!rgb_img.data)
-            break;
-
-        std::cout << "Frame: " << i << std::endl;
-
-        // Read depth image
-        depth_img_path.str("");
-        depth_img_path << string_buff.str() << "/depth_" << i << ".png";
-
-        d_img = cv::imread(depth_img_path.str(), cv::IMREAD_ANYDEPTH);
-        d_img.convertTo(d_img, CV_32F);
+        cv::Mat left, rigth;
+        if(!camera->rgb(left, rigth)){
+            std::cout << "Error color frame \n";
+            return -1;
+        }
+    
+        cv::Mat depth;
+        if(!camera->depth(depth)){
+            std::cout << "Error depth frame \n";
+            return -1;
+        }
+        depth.convertTo(depth, CV_32F);
 
         // Backproject to point cloud
-        X = X_pre.mul(d_img); Y = Y_pre.mul(d_img);
+        X = X_pre.mul(depth); Y = Y_pre.mul(depth);
         cloud_array.setZero();
 
         // The following transformation+projection is only necessary to visualize RGB with overlapped segments
         // Transform point cloud to color reference frame
-        X_t = ((float)R_stereo.at<double>(0,0))*X + ((float)R_stereo.at<double>(0,1))*Y + ((float)R_stereo.at<double>(0,2))*d_img + (float)t_stereo.at<double>(0);
-        Y_t = ((float)R_stereo.at<double>(1,0))*X + ((float)R_stereo.at<double>(1,1))*Y + ((float)R_stereo.at<double>(1,2))*d_img + (float)t_stereo.at<double>(1);
-        d_img = ((float)R_stereo.at<double>(2,0))*X + ((float)R_stereo.at<double>(2,1))*Y + ((float)R_stereo.at<double>(2,2))*d_img + (float)t_stereo.at<double>(2);
+        X_t = ((float)R_stereo.at<double>(0,0))*X + ((float)R_stereo.at<double>(0,1))*Y + ((float)R_stereo.at<double>(0,2))*depth + (float)t_stereo.at<double>(0);
+        Y_t = ((float)R_stereo.at<double>(1,0))*X + ((float)R_stereo.at<double>(1,1))*Y + ((float)R_stereo.at<double>(1,2))*depth + (float)t_stereo.at<double>(1);
+        depth = ((float)R_stereo.at<double>(2,0))*X + ((float)R_stereo.at<double>(2,1))*Y + ((float)R_stereo.at<double>(2,2))*depth + (float)t_stereo.at<double>(2);
 
-        projectPointCloud(X_t, Y_t, d_img, U, V, fx_rgb, fy_rgb, cx_rgb, cy_rgb, t_stereo.at<double>(2), cloud_array);
+        projectPointCloud(X_t, Y_t, depth, U, V, fx_rgb, fy_rgb, cx_rgb, cy_rgb, t_stereo.at<double>(2), cloud_array);
 
         cv::Mat_<cv::Vec3b> seg_rz = cv::Mat_<cv::Vec3b>(height,width,cv::Vec3b(0,0,0));
         cv::Mat_<uchar> seg_output = cv::Mat_<uchar>(height,width,uchar(0));
@@ -268,7 +267,7 @@ int main(int argc, char ** argv){
         for(int r=0; r<  height; r++){
             dColor = seg_rz.ptr<uchar>(r);
             sCode = seg_output.ptr<uchar>(r);
-            srgb = rgb_img.ptr<uchar>(r);
+            srgb = left.ptr<uchar>(r);
             for(int c=0; c< width; c++){
                 code = *sCode;
                 if (code>0){
@@ -289,22 +288,22 @@ int main(int argc, char ** argv){
         std::stringstream fps;
         fps << (int)(1/time_elapsed+0.5) << " fps";
         cv::putText(seg_rz, fps.str(), cv::Point(15,15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255,255,255,1));
-        std::cout << "Nr cylinders:" << nr_cylinders << std::endl;
+        std::cout << "Number of cylinders: " << nr_cylinders << std::endl;
         int cylinder_code_offset = 50;
         // show cylinder labels
         if (nr_cylinders>0){
             std::stringstream text;
-            text<<"Cylinders:";
+            text<<"Cylinders: ";
             
             cv::putText(seg_rz, text.str(), cv::Point(width/2,15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255,255,255,1));
             for(int j=0;j<nr_cylinders;j++){
                 cv::rectangle(seg_rz,  cv::Point(width/2 + 80+15*j,6),cv::Point(width/2 + 90+15*j,16), cv::Scalar(color_code[cylinder_code_offset+j][0],color_code[cylinder_code_offset+j][1],color_code[cylinder_code_offset+j][2]),-1);
             }
         }
-        cv::imshow("Seg", seg_rz);
-        cv::waitKey(1);
-        i++;
+        cv::imshow("Segmentation", seg_rz);
     }
+
+    cv::destroyWindow("Segmentation");
     
     return 0;
 }

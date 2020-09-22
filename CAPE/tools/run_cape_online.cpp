@@ -20,6 +20,23 @@ bool cylinder_detection= true;
 CAPE * plane_detector;
 std::vector<cv::Vec3b> color_code;
 
+// void draw3DCoordinateAxes(cv::Mat image, const std::vector<cv::Point2f> &list_points2d){
+//     cv::Scalar red(0, 0, 255);
+//     cv::Scalar green(0,255,0);
+//     cv::Scalar blue(255,0,0);
+//     cv::Scalar black(0,0,0);
+
+//     cv::Point2i origin = list_points2d[0];
+//     cv::Point2i pointX = list_points2d[1];
+//     cv::Point2i pointY = list_points2d[2];
+//     cv::Point2i pointZ = list_points2d[3];
+
+//     drawArrow(image, origin, pointX, red, 9, 2);
+//     drawArrow(image, origin, pointY, green, 9, 2);
+//     drawArrow(image, origin, pointZ, blue, 9, 2);
+//     cv::circle(image, origin, radius/2, black, -1, lineType );
+// }
+
 bool loadCalibParameters(std::string filepath, cv:: Mat & intrinsics_rgb, cv::Mat & dist_coeffs_rgb, cv:: Mat & intrinsics_ir, cv::Mat & dist_coeffs_ir, cv::Mat & R, cv::Mat & T){
 
     cv::FileStorage fs(filepath,cv::FileStorage::READ);
@@ -38,63 +55,6 @@ bool loadCalibParameters(std::string filepath, cv:: Mat & intrinsics_rgb, cv::Ma
     }
 }
 
-void projectPointCloud(cv::Mat & X, cv::Mat & Y, cv::Mat & Z, cv::Mat & U, cv::Mat & V, float fx_rgb, float fy_rgb, float cx_rgb, float cy_rgb, double z_min, Eigen::MatrixXf & cloud_array){
-
-    int width = X.cols;
-    int height = X.rows;
-
-    // Project to image coordinates
-    cv::divide(X,Z,U,1);
-    cv::divide(Y,Z,V,1);
-    U = U*fx_rgb + cx_rgb;
-    V = V*fy_rgb + cy_rgb;
-    // Reusing U as cloud index
-    //U = V*width + U + 0.5;
-
-    float * sz, * sx, * sy, * u_ptr, * v_ptr, * id_ptr;
-    float z, u, v;
-    int id;
-    for(int r=0; r< height; r++){
-        sx = X.ptr<float>(r);
-        sy = Y.ptr<float>(r);
-        sz = Z.ptr<float>(r);
-        u_ptr = U.ptr<float>(r);
-        v_ptr = V.ptr<float>(r);
-        for(int c=0; c< width; c++){
-            z = sz[c];
-            u = u_ptr[c];
-            v = v_ptr[c];
-            if(z>z_min && u>0 && v>0 && u<width && v<height){
-                id = floor(v)*width + u;
-                cloud_array(id,0) = sx[c];
-                cloud_array(id,1) = sy[c];
-                cloud_array(id,2) = z;
-            }
-        }
-    }
-}
-
-void organizePointCloudByCell(Eigen::MatrixXf & cloud_in, Eigen::MatrixXf & cloud_out, cv::Mat & cell_map){
-
-    int width = cell_map.cols;
-    int height = cell_map.rows;
-    int mxn = width*height;
-    int mxn2 = 2*mxn;
-
-    int id, it(0);
-    int * cell_map_ptr;
-    for(int r=0; r< height; r++){
-        cell_map_ptr = cell_map.ptr<int>(r);
-        for(int c=0; c< width; c++){
-            id = cell_map_ptr[c];
-            *(cloud_out.data() + id) = *(cloud_in.data() + it);
-            *(cloud_out.data() + mxn + id) = *(cloud_in.data() + mxn + it);
-            *(cloud_out.data() + mxn2 + id) = *(cloud_in.data() + mxn2 + it);
-            it++;
-        }
-    }
-}
-
 int main(int argc, char ** argv){   
 
     RSCamera* camera = new RSCamera();
@@ -107,6 +67,7 @@ int main(int argc, char ** argv){
 
     // Create window
     cv::namedWindow("Segmentation",cv::WINDOW_AUTOSIZE);
+    cv::namedWindow("mask",cv::WINDOW_AUTOSIZE);
     cvStartWindowThread();
 
     cv::Mat intrinsics, coeffs;
@@ -163,8 +124,9 @@ int main(int argc, char ** argv){
     cv::Mat_<int> cell_map(height,width);
 
     for (int r=0;r<height; r++){
-        int cell_r = r/PATCH_SIZE;
-        int local_r = r%PATCH_SIZE;
+        int cell_r = r / PATCH_SIZE;
+        int local_r = r % PATCH_SIZE;
+
         for (int c=0;c<width; c++){
             int cell_c = c/PATCH_SIZE;
             int local_c = c%PATCH_SIZE;
@@ -228,21 +190,23 @@ int main(int argc, char ** argv){
         Y_t = ((float)R_stereo.at<double>(1,0))*X + ((float)R_stereo.at<double>(1,1))*Y + ((float)R_stereo.at<double>(1,2))*depth + (float)t_stereo.at<double>(1);
         depth = ((float)R_stereo.at<double>(2,0))*X + ((float)R_stereo.at<double>(2,1))*Y + ((float)R_stereo.at<double>(2,2))*depth + (float)t_stereo.at<double>(2);
 
-        projectPointCloud(X_t, Y_t, depth, U, V, fx_rgb, fy_rgb, cx_rgb, cy_rgb, t_stereo.at<double>(2), cloud_array);
+        CAPE::projectPointCloud(X_t, Y_t, depth, U, V, fx_rgb, fy_rgb, cx_rgb, cy_rgb, t_stereo.at<double>(2), cloud_array);
 
         cv::Mat_<cv::Vec3b> seg_rz = cv::Mat_<cv::Vec3b>(height,width,cv::Vec3b(0,0,0));
         cv::Mat_<uchar> seg_output = cv::Mat_<uchar>(height,width,uchar(0));
+        cv::Mat_<uchar> seg_output_cylinder = cv::Mat_<uchar>(height,width,uchar(0));
 
         // Run CAPE
         int nr_planes, nr_cylinders;
         std::vector<PlaneSeg> plane_params;
         std::vector<CylinderSeg> cylinder_params;
         double t1 = cv::getTickCount();
-        organizePointCloudByCell(cloud_array, cloud_array_organized, cell_map);
+        CAPE::organizePointCloudByCell(cloud_array, cloud_array_organized, cell_map);
         plane_detector->process(cloud_array_organized, nr_planes, nr_cylinders, seg_output, plane_params, cylinder_params);
         double t2 = cv::getTickCount();
         double time_elapsed = (t2-t1)/(double)cv::getTickFrequency();
-        std::cout<<"Total time elapsed: " << time_elapsed << std::endl;
+        std::cout<<"Total time elapsed: " << time_elapsed << " sec" << std::endl;
+
 
         /* Uncomment this block to print model params
         for(int p_id=0; p_id<nr_planes;p_id++){
@@ -251,13 +215,26 @@ int main(int argc, char ** argv){
             cout<<"d: "<<plane_params[p_id].d<<endl;
         }
 
-        for(int c_id=0; c_id<nr_cylinders;c_id++){
-            cout<<"[Cylinder #"<<c_id<<"] with ";
-            cout<<"axis: ("<<cylinder_params[c_id].axis[0]<<" "<<cylinder_params[c_id].axis[1]<<" "<<cylinder_params[c_id].axis[2]<<"), ";
-            cout<<"center: ("<<cylinder_params[c_id].centers[0].transpose()<<"), ";
-            cout<<"radius: "<<cylinder_params[c_id].radii[0]<<endl;
-        }
         */
+        for(int c_id=0; c_id<nr_cylinders;c_id++){
+            std::cout << "[Cylinder #"<<c_id<<"] with ";
+            std::cout << "axis: ("<<cylinder_params[c_id].axis[0]<<" "<<cylinder_params[c_id].axis[1]<<" "<<cylinder_params[c_id].axis[2]<<"), ";
+            std::cout << "center: (" << cylinder_params[c_id].centers[0].transpose()<<"), ";
+            std::cout << "radius: " << cylinder_params[c_id].radii[0] << std::endl;
+        }
+
+        // loop to extract cylinder mask
+        for(int ii=0; ii < seg_output.rows; ii++){
+            for(int jj=0; jj < seg_output.cols; jj++){
+                cv::Scalar px = seg_output.at<uchar>(ii,jj);
+                if (px[0] > 50){ // cylinder threshold
+                    seg_output_cylinder.at<uchar>(ii,jj) = uchar(255); 
+                }else{
+                    seg_output_cylinder.at<uchar>(ii,jj) = uchar(0);
+                }
+            }
+        }
+        cv::imshow("mask", seg_output_cylinder);
 
         // Map segments with color codes and overlap segmented image w/ RGB
         uchar * sCode;
@@ -266,16 +243,16 @@ int main(int argc, char ** argv){
         int code;
         for(int r=0; r<  height; r++){
             dColor = seg_rz.ptr<uchar>(r);
-            sCode = seg_output.ptr<uchar>(r);
-            srgb = left.ptr<uchar>(r);
+            sCode  = seg_output.ptr<uchar>(r);
+            srgb   = left.ptr<uchar>(r);
             for(int c=0; c< width; c++){
                 code = *sCode;
                 if (code>0){
                     dColor[c*3] =   color_code[code-1][0]/2 + srgb[0]/2;
                     dColor[c*3+1] = color_code[code-1][1]/2 + srgb[1]/2;
-                    dColor[c*3+2] = color_code[code-1][2]/2 + srgb[2]/2;;
+                    dColor[c*3+2] = color_code[code-1][2]/2 + srgb[2]/2;
                 }else{
-                    dColor[c*3] =  srgb[0];
+                    dColor[c*3]   = srgb[0];
                     dColor[c*3+1] = srgb[1];
                     dColor[c*3+2] = srgb[2];
                 }
@@ -304,6 +281,7 @@ int main(int argc, char ** argv){
     }
 
     cv::destroyWindow("Segmentation");
+    cv::destroyWindow("mask");
     
     return 0;
 }

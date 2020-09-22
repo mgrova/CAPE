@@ -73,7 +73,6 @@ void projectPointCloud(cv::Mat & X, cv::Mat & Y, cv::Mat & Z, cv::Mat & U, cv::M
 }
 
 void organizePointCloudByCell(Eigen::MatrixXf & cloud_in, Eigen::MatrixXf & cloud_out, cv::Mat & cell_map){
-
     int width = cell_map.cols;
     int height = cell_map.rows;
     int mxn = width*height;

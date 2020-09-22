@@ -43,6 +43,12 @@ CAPE::CAPE(int depth_height, int depth_width, int cell_width, int cell_height, b
 	mask_cross_kernel.at<uchar>(0,2) = 0; mask_cross_kernel.at<uchar>(2,0) = 0;
 }
 
+//---------------------------------------------------------------------------------------------------------------------
+CAPE::~CAPE(void){
+	Grid.clear();
+}
+
+//---------------------------------------------------------------------------------------------------------------------
 void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & nr_cylinders_final,  cv::Mat & seg_out, std::vector<PlaneSeg> & plane_segments_final, std::vector<CylinderSeg> & cylinder_segments_final){
 
 	int nr_horizontal_cells = depth_width/cell_width;
@@ -78,7 +84,7 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
 	/*------------------------------- Initialize histogram -----------------------------------*/
 	//double t3 = cv::getTickCount();
 	// Spherical coordinates
-	Eigen::MatrixXd C(nr_total_cells,2);
+	Eigen::MatrixXd C(nr_total_cells, 2);
 	std::vector<bool> planar_flags(nr_total_cells,false);
 	std::vector<float> scores_stacked(nr_total_cells,0.0);
 	int nr_remaining_planar_cells = 0;
@@ -430,7 +436,7 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
 		}
 	}
 
-    for(int i=0;i<nr_cylinders;i++){
+    for(int i = 0 ; i < nr_cylinders ; i++){
         int reg_id = cylinder2region_map[i].first;
         if (reg_id>-1){
             int sub_reg_id = cylinder2region_map[i].second;
@@ -455,6 +461,7 @@ void CAPE::process(Eigen::MatrixXf & cloud_array, int & nr_planes_final, int & n
 	//Grid.clear();
 }
 
+//---------------------------------------------------------------------------------------------------------------------
 void CAPE::getConnectedComponents(cv::Mat & segment_map, MatrixXb & planes_association_matrix){
 
 	int *row, *row_below;
@@ -479,6 +486,7 @@ void CAPE::getConnectedComponents(cv::Mat & segment_map, MatrixXb & planes_assoc
 	}
 }
 
+//---------------------------------------------------------------------------------------------------------------------
 // Recursive implementation
 // TODO: Test instead iterative implementation
 void CAPE::RegionGrowing(unsigned short width, unsigned short height, bool* input, bool* output, std::vector<PlaneSeg*> & Grid, std::vector<float> & cell_dist_tols, unsigned short x, unsigned short y, double * normal_1, double d)
@@ -504,8 +512,62 @@ void CAPE::RegionGrowing(unsigned short width, unsigned short height, bool* inpu
 	if (y < height-1) RegionGrowing(width, height, input, output, Grid, cell_dist_tols, x, y+1, normal_2, d_2);   // lower pixel
 }
 
+//---------------------------------------------------------------------------------------------------------------------
+void CAPE::organizePointCloudByCell(Eigen::MatrixXf & cloud_in, Eigen::MatrixXf & cloud_out, cv::Mat & cell_map){
+	int width = cell_map.cols;
+    int height = cell_map.rows;
+    int mxn = width*height;
+    int mxn2 = 2*mxn;
 
+    int id, it(0);
+    int * cell_map_ptr;
+    for(int r=0; r< height; r++){
+        cell_map_ptr = cell_map.ptr<int>(r);
+        for(int c=0; c< width; c++){
+            id = cell_map_ptr[c];
+            *(cloud_out.data() + id) = *(cloud_in.data() + it);
+            *(cloud_out.data() + mxn + id) = *(cloud_in.data() + mxn + it);
+            *(cloud_out.data() + mxn2 + id) = *(cloud_in.data() + mxn2 + it);
+            it++;
+        }
+    }
+	
+	return;
+}
 
-CAPE::~CAPE(void){
-	Grid.clear();
+//---------------------------------------------------------------------------------------------------------------------
+void CAPE::projectPointCloud(cv::Mat & X, cv::Mat & Y, cv::Mat & Z, cv::Mat & U, cv::Mat & V, float fx_rgb, float fy_rgb, float cx_rgb, float cy_rgb, double z_min, Eigen::MatrixXf & cloud_array){
+    int width = X.cols;
+    int height = X.rows;
+
+    // Project to image coordinates
+    cv::divide(X,Z,U,1);
+    cv::divide(Y,Z,V,1);
+    U = U*fx_rgb + cx_rgb;
+    V = V*fy_rgb + cy_rgb;
+    // Reusing U as cloud index
+    //U = V*width + U + 0.5;
+
+    float * sz, * sx, * sy, * u_ptr, * v_ptr, * id_ptr;
+    float z, u, v;
+    int id;
+    for(int r=0; r< height; r++){
+        sx = X.ptr<float>(r);
+        sy = Y.ptr<float>(r);
+        sz = Z.ptr<float>(r);
+        u_ptr = U.ptr<float>(r);
+        v_ptr = V.ptr<float>(r);
+        for(int c=0; c< width; c++){
+            z = sz[c];
+            u = u_ptr[c];
+            v = v_ptr[c];
+            if(z>z_min && u>0 && v>0 && u<width && v<height){
+                id = floor(v)*width + u;
+                cloud_array(id,0) = sx[c];
+                cloud_array(id,1) = sy[c];
+                cloud_array(id,2) = z;
+            }
+        }
+    }
+	return;
 }

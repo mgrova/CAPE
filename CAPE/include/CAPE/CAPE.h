@@ -26,6 +26,9 @@ public:
 	void RegionGrowing(unsigned short width, unsigned short height, bool* input, bool* output, std::vector<PlaneSeg*> & Grid, std::vector<float> & cell_dist_tols, unsigned short x, unsigned short y, double * normal, double d);
 	void getConnectedComponents(cv::Mat & segment_map, MatrixXb & planes_association_matrix);
 	
+	static void organizePointCloudByCell(Eigen::MatrixXf & cloud_in, Eigen::MatrixXf & cloud_out, cv::Mat & cell_map);
+	static void projectPointCloud(cv::Mat & X, cv::Mat & Y, cv::Mat & Z, cv::Mat & U, cv::Mat & V, float fx_rgb, float fy_rgb, float cx_rgb, float cy_rgb, double z_min, Eigen::MatrixXf & cloud_array);
+
 private:
 	int cell_width;
 	int cell_height;
